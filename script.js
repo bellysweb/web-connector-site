@@ -44,11 +44,19 @@
       }
       try {
         const response = await fetch('/api/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFrom(leadForm)) });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || 'We could not send that just now. Please try again shortly.');
+        const responseText = await response.text();
+        let result = {};
+        try { result = responseText ? JSON.parse(responseText) : {}; }
+        catch { throw new Error(`The form endpoint returned HTTP ${response.status}. The Cloudflare form handler may not be deployed.`); }
+        if (!response.ok) throw new Error(result.error || `The form endpoint returned HTTP ${response.status}.`);
         setStatus(leadForm, 'Thanks — your enquiry has been sent. We’ll be in touch.');
         leadForm.reset();
-      } catch (error) { setStatus(leadForm, error.message || 'We could not send that just now. Please email hello@web-connector.win.', true); }
+      } catch (error) {
+        const message = error instanceof TypeError
+          ? 'Could not reach /api/lead. Confirm the Cloudflare Pages Function is deployed; static files alone cannot process the form.'
+          : error.message || 'We could not send that just now. Please email hello@web-connector.win.';
+        setStatus(leadForm, message, true);
+      }
       button.disabled = false;
     });
   }
